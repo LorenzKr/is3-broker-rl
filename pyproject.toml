@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "is3-broker-rl"
+name = "is3_rl_wholesale"
 version = "0.1.0"
 description = "A Python starter template with Poetry and tox."
 authors = ["Philipp Page <github@philipp-page.de>"]
@@ -38,6 +38,6 @@ line-length = 120
 profile = "black"
 
 [tool.mypy]
-files = "is3_broker_rl"
+files = "is3_rl_wholesale"
 ignore_missing_imports = true
 plugins = "numpy.typing.mypy_plugin"

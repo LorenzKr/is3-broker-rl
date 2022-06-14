@@ -2,7 +2,7 @@ import logging.config
 import os
 import sys
 
-from is3_broker_rl.utils import get_root_path
+from is3_rl_wholesale.utils import get_root_path
 
 
 def setup_logging() -> None:
