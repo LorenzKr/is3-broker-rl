@@ -226,10 +226,10 @@ class Env(gym.Env):
 class Env(rllib.env.external_env.ExternalEnv):
     done = False
     reward = 0
-    obs = {}
-    episode_id = 0
+    #obs = {}
+    #episode_id = 0
     timeslot = set()
-    obs = np.array([-5.51846826e03 ,-6.34140234e03, -7.33104980e03, -7.19497510e03, -7.32590234e03, -7.83731738e03,
+    backup_obs = np.array([-5.51846826e03 ,-6.34140234e03, -7.33104980e03, -7.19497510e03, -7.32590234e03, -7.83731738e03,
         -8.20035547e03, -1.28710791e03,
         1.02296250e04 , 1.48304512e04 , 1.27051992e04,  5.63840186e03,
         1.11968408e03 ,-3.37990771e03 ,-7.34375439e03, -1.06434189e04,
@@ -282,14 +282,30 @@ class Env(rllib.env.external_env.ExternalEnv):
     def __init__(self, env_config: dict):
         self._log = logging.getLogger(__name__)
         self._log.debug("Creating Env")
-        self.backup_obs = self.obs
+        #self.backup_obs = self.obs
         config = Env_config()
         self.observation_space, self.action_space = config.get_gym_spaces()
-        self._log.info(np.shape(self.obs), self.obs)
+        #self._log.info(np.shape(self.obs), self.obs)
         super().__init__(self.action_space, self.observation_space, max_concurrent=100)
         
-   
 
+    def run(self):
+        self._log.info("Running run once.")
+        #self.reset()
+        timeslot = 0
+        self.episode_id = self.start_episode()
+        self._log.info("Running run once.")
+        for i in range(1):
+            self._log.info("Running run in while.")
+            if timeslot not in self.timeslot:
+                self._log.info("Running run once.")
+                #obs = self._get_obs()
+                self._log.info("Running run once.")
+                self.action = self.get_action(episode_id= self.episode_id,observation = self.backup_obs)
+                self._log.info("Running run once.")
+                self._log.info(f"Action in while {self.action}")
+                
+"""
     def reset(self):
         self._log.info(f"Reseting env")
         self.reward = 0
@@ -331,21 +347,7 @@ class Env(rllib.env.external_env.ExternalEnv):
         self._log.info("Running run once.")
         super().end_episode(self.episode_id)
 
-    def run(self):
-        self._log.info("Running run once.")
-        #self.reset()
-        timeslot = 0
-        self.episode_id = self.start_episode()
-        self._log.info("Running run once.")
-        for i in range(1):
-            self._log.info("Running run in while.")
-            if timeslot not in self.timeslot:
-                self._log.info("Running run once.")
-                obs = self._get_obs()
-                self._log.info("Running run once.")
-                self.action = self.get_action(self.obs)
-                self._log.info("Running run once.")
-                self._log.info(f"Action in while {self.action}")
+    
 
 
     def _get_obs(self):
@@ -353,3 +355,4 @@ class Env(rllib.env.external_env.ExternalEnv):
 
     def _set_obs(self,obs):
         self.obs = obs
+"""

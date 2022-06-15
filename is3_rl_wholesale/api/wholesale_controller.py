@@ -24,7 +24,9 @@ from ray.rllib.agents.impala import impala
 from ray.rllib.agents.a3c.a3c import A3CTrainer
 from ray.rllib.offline.io_context import IOContext
 from ray.rllib.offline.input_reader import InputReader
-
+import dotenv
+from ray.rllib.agents.a3c.a3c_tf_policy import A3CTFPolicy
+from ray.rllib.policy.sample_batch import SampleBatch
 
 app = FastAPI()
 ray.init(address="auto", namespace="serve", ignore_reinit_error=True)
@@ -40,7 +42,7 @@ class WholesaleController():
     
     def __init__(self):
         setup_logging()
-        
+        #dotenv.load_dotenv()
         self._log = logging.getLogger(__name__)
         self._log.debug("Init wholesale controller")
         self.action = None
@@ -52,44 +54,44 @@ class WholesaleController():
     @app.get("/run")
     def run(self, request: Request):
         
+        obs = request.query_params["obs"]
+        obs = np.array(json.loads(obs), dtype=np.float32)
+        #sample_batch = SampleBatch({"obs": [obs], "rewards": [0], "actions": [0], "dones"=[]})
+        #self._log(f"Sample_Batch: {sample_batch}")
+        self._log.info(obs)
+        if self.action is not None:
+            action = self.trainer.compute_single_action(obs)
+        else:
+            action = self.trainer.compute_single_action(obs,prev_action=self.action, prev_reward=self.reward)
+            self.reward = 0
+        #training = self.trainer.training_iteration()
+        training = self.trainer.train()
+        #self.trainer.get_policy().learn_on_batch(sample_batch)
+        #self.train_agent()
+        self._log.info(action)
+        self.action = action
+        #return {"action" : action.tolist()}
+        #self._log.info(f"Training: {training}")
         #self._log.info(self.trainer.train())
-        #return
-        temp_env = Env({})
-        self._log.info(np.shape(temp_env._get_obs()))
-        config = Env_config().observation_space
-        self._log.info(config.contains(temp_env._get_obs()))
-        #self.trainer.get_policy().
-        try:
-            if self.action is not None:
-                action = self.trainer.compute_single_action(temp_env._get_obs())
-            else:
-                action = self.trainer.compute_single_action(temp_env._get_obs(),prev_action=self.action, prev_reward=1)
-            #training = self.trainer.training_iteration()
-            training = self.trainer.train()
-            self.action = action
-            self._log.info(f"Training: {training}")
-            #self._log.info(self.trainer.train())
-            
-            #obs, reward, done, _ = temp_env.step(action[0])
-            #self._log.info(f"{obs}, {reward}")
-        except Exception as e:
-            self._log.error(e)
-
-    @app.get("/test")
-    def test(self, request: Request):
-        test3 = self.trainer.train()
-        training = self.trainer._episode_history
-        self._log.info(f"Training: {training}")
-        self._log.info(f"Training2: {test3}")
-
         
+        #obs, reward, done, _ = temp_env.step(action[0])
+        #self._log.info(f"{obs}, {reward}")
+        
+
+ 
+    def train_agent(self):
+        
+        training = self.trainer.train()
+        self._log.info(training)
+        
+
 
     @app.get("/build_observation")
     def build_observation(self, request: Request):
         obs = request.query_params["obs"]
         obs = np.array(json.loads(obs))
         self._log.info(type(obs))
-        self.env._set_obs(obs)
+        self.obs = obs
         self._log.info(f"Building observation with: {obs}")
         self.finished_observation = True
 
@@ -145,34 +147,30 @@ class WholesaleController():
     @app.get("/log_rewards")
     def log_rewards(self, request: Request):
         reward = request.query_params["reward"]
-        episode_id = request.query_params["episode_id"]
-        #self.env.reward = reward
-        self.env.log_returns(reward)
+        #episode_id = request.query_params["episode_id"]
+        timeslot = request.query_params["timeslot"] 
         self.finished_observation = False
+        self.reward = reward
         self._log.info(f"Reward logged: {reward}")
         #return reward
 
+
     @app.get("/start_episode")
     def start_episode(self, request: Request):
-        self._log.debug("Creating Env9")
         env_variables = Env_config()
-        self._log.debug("Creating Env2")
         config = env_variables.get_rl_config()
-        self._log.debug("Creating Env3")
         self._log.info(config)
-        
-        
-        self._log.debug("Creating Env4")
+
         def env_creator(env_config):
             env = Env({})
             return env
-        
+
+        def _input(InputReader):
+
+            return
+
         register_env("my_env", env_creator)
-        #config["env"] = "my_env"
         random_int = int(np.random.random_integers(1000))
-        #self.env= env_creator({})
-        #self._log.info(f"{self.env}")
-        #self.trainer_cls = get_trainer_class("PPO")
         DEFAULT_CONFIG = ({
             # Should use a critic as a baseline (otherwise don't use value baseline;
             # required for using GAE).
@@ -190,6 +188,7 @@ class WholesaleController():
             "lr": 0.0001,
             # Learning rate schedule
             "lr_schedule": None,
+            "input" : _input,
             # Value Function Loss coefficient
             "vf_loss_coeff": 0.5,
             # Entropy coefficient
@@ -210,56 +209,37 @@ class WholesaleController():
             # speedup of up to 3x for a large number of workers and heavier
             # gradient computations (e.g. ray/rllib/tuned_examples/a3c/pong-a3c.yaml)).
             "_disable_execution_plan_api": True,
+            "observation_space" : env_variables.observation_space,
+            "action_space" : env_variables.action_space,
         })
        
-        DEFAULT_CONFIG["env"] = "my_env"
+        #DEFAULT_CONFIG["env"] = "my_env"
         DEFAULT_CONFIG["train_batch_size"] = 1
-        try:
-            self.trainer = A3CTrainer(config=DEFAULT_CONFIG)
-            self._log.info(f"{self.trainer.env_creator}")
-            #self.episode_id = self.env.start_episode()#f"testId{random_int}")
-            #self.trainer = PPOTrainer(env=self.env,config=config)
-            return #self.episode_id
-        except Exception as e:
-            self._log.error(e)
-            #self._log.info(f"Episode_id {self.episode_id}")
+        
+        self.trainer = A3CTrainer(config=DEFAULT_CONFIG).get_policy()
+        self.policy = 
+            
+        self._log.info(f"Trainer created")
+
+
         
         
-    
+
     
     @app.get("/end_episode")
     def end_episodes(self, request: Request):
-        try:
-            register_env("my_env", self.env)
-            self.trainer = PPOTrainer(config={"env":"my_env", "observation_space":self.env.observation_space, "action_space": self.env.action_space})
-        except Exception as e:
-            self._log.error(e)
+        try: 
+            self.trainer.save_checkpoint(dotenv.get_key("CHECKPOINT_PATH"))
+        except:
+            pass
+
 
     @app.get("/reset")
     def reset(self):
-        self.env.reset()
+        
         self.finished_observation = False
-        pass
+    
 
-    @app.get("/step")
-    def step(self, action):    
-        self.env.step(action) 
-        return 
-
-
-"""
-class _input(InputReader):
-    def __init__(self) -> None:
-        super().__init__()
-
-
-
-    def input(IOContext):
-
-
-        return InputReader().
-
-"""
 
 
 
