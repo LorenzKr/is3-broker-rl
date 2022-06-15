@@ -22,11 +22,13 @@ from ray.rllib.agents.ppo import PPOTrainer
 from ray.tune.registry import register_env
 from ray.rllib.agents.impala import impala
 from ray.rllib.agents.a3c.a3c import A3CTrainer
+from ray.rllib.offline.io_context import IOContext
+from ray.rllib.offline.input_reader import InputReader
 
 
 app = FastAPI()
 ray.init(address="auto", namespace="serve", ignore_reinit_error=True)
-
+serve.start()
 @serve.deployment(route_prefix="/wholesale")
 @serve.ingress(app)
 class WholesaleController():
@@ -53,18 +55,23 @@ class WholesaleController():
         #self._log.info(self.trainer.train())
         #return
         temp_env = Env({})
+        self._log.info(np.shape(temp_env._get_obs()))
+        config = Env_config().observation_space
+        self._log.info(config.contains(temp_env._get_obs()))
+        #self.trainer.get_policy().
         try:
             if self.action is not None:
                 action = self.trainer.compute_single_action(temp_env._get_obs())
             else:
                 action = self.trainer.compute_single_action(temp_env._get_obs(),prev_action=self.action, prev_reward=1)
             #training = self.trainer.training_iteration()
+            training = self.trainer.train()
             self.action = action
-            #self._log.info(f"Training: {training}")
-            self._log.info(action[0])
+            self._log.info(f"Training: {training}")
+            #self._log.info(self.trainer.train())
             
-            obs, reward, done, _ = temp_env.step(action[0])
-            self._log.info(f"{obs}, {reward}")
+            #obs, reward, done, _ = temp_env.step(action[0])
+            #self._log.info(f"{obs}, {reward}")
         except Exception as e:
             self._log.error(e)
 
@@ -240,8 +247,19 @@ class WholesaleController():
         return 
 
 
-    
+"""
+class _input(InputReader):
+    def __init__(self) -> None:
+        super().__init__()
 
+
+
+    def input(IOContext):
+
+
+        return InputReader().
+
+"""
 
 
 

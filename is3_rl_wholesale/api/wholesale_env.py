@@ -16,36 +16,37 @@ class Env_config():
         l_bounds = []
         h_bounds = []
         l_bounds.append(np.array([-np.inf]*24))     #p_grid_imbalance = 0
-        h_bounds.append(np.array([-np.inf]*24))                                       
+        h_bounds.append(np.array([np.inf]*24))                                       
         l_bounds.append(np.array([-np.inf]*24))     #p_customer_prosumption = 0
-        h_bounds.append(np.array([-np.inf]*24))                                           
+        h_bounds.append(np.array([np.inf]*24))                                           
         l_bounds.append(np.array([-np.inf]*24))     #p_wholesale_price = 0
-        h_bounds.append(np.array([-np.inf]*24))     
+        h_bounds.append(np.array([np.inf]*24))     
         l_bounds.append(np.array([-np.inf]*24))     #p_cloud_cover = 0
-        h_bounds.append(np.array([-np.inf]*24))     
+        h_bounds.append(np.array([np.inf]*24))     
         l_bounds.append(np.array([-np.inf]*24))     #p_temperature = 0
-        h_bounds.append(np.array([-np.inf]*24))     
+        h_bounds.append(np.array([np.inf]*24))     
         l_bounds.append(np.array([-np.inf]*24))     #p_wind_speed = 0
-        h_bounds.append(np.array([-np.inf]*24))       
+        h_bounds.append(np.array([np.inf]*24))       
         l_bounds.append(np.array([-np.inf]*24))     #p_wind_direction = 0
-        h_bounds.append(np.array([-np.inf]*24))     
+        h_bounds.append(np.array([np.inf]*24))     
         l_bounds.append(np.array([-np.inf]*24))     # hour of the start with dummy. 
-        h_bounds.append(np.array([-np.inf]*24))
+        h_bounds.append(np.array([np.inf]*24))
         l_bounds.append(np.array([-np.inf]*7))      # day of the start with dummy
-        h_bounds.append(np.array([-np.inf]*7))
+        h_bounds.append(np.array([np.inf]*7))
 
 
         l_bound_total = np.array([])
         for j in l_bounds:
             l_bound_total = np.append(l_bound_total, j)
         r_bound_total = np.array([])
-        for j in l_bounds:
+        for j in h_bounds:
             r_bound_total = np.append(r_bound_total, j)
 
 
         self.observation_space = gym.spaces.Box(
-                    low=l_bound_total,
-                    high=r_bound_total,
+                    low=np.ravel(l_bound_total),
+                    high=np.ravel(r_bound_total),
+                    dtype=np.float32
                     #shape=observation_space_bounds[:, 0].shape,
                 )
 
@@ -276,7 +277,7 @@ class Env(rllib.env.external_env.ExternalEnv):
         7.05000000e00 , 7.84000000e00 , 7.98000000e00,  8.03000000e00,
         8.04000000e00 , 6.75000000e00 , 6.85000000e00,  6.13000000e00,
         5.26000000e00 , 5.50000000e00 , 6.36000000e00,  3.52000000e00,
-        5.98000000e00 , 6.07000000e00 , 6.27000000e00,  7.37000000e00,  7.37000000e00],dtype=float)
+        5.98000000e00 , 6.07000000e00 , 6.27000000e00,  7.37000000e00,  7.37000000e00],dtype=np.float32)
 
     def __init__(self, env_config: dict):
         self._log = logging.getLogger(__name__)
@@ -284,6 +285,7 @@ class Env(rllib.env.external_env.ExternalEnv):
         self.backup_obs = self.obs
         config = Env_config()
         self.observation_space, self.action_space = config.get_gym_spaces()
+        self._log.info(np.shape(self.obs), self.obs)
         super().__init__(self.action_space, self.observation_space, max_concurrent=100)
         
    

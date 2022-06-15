@@ -16,12 +16,15 @@ def main():
     log = logging.getLogger(__name__)
     log.info("Starting Ray server ...")
     #time.sleep(5)
-    #ray.init(address="auto", namespace="serve", ignore_reinit_error=True)
-    #serve.start(detached=True)
+    
+    ray.init(address="auto", namespace="serve", ignore_reinit_error=True)
+    serve.start()
 
     response = requests.get("http://127.0.0.1:8000/wholesale")
     print(response)
     
+    while True:
+        time.sleep(5)
 
 
 
