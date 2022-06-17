@@ -8,6 +8,7 @@ import requests
 from conf import setup_logging
 #from is3_rl_wholesale.api.observation_controller import ObservationController
 from is3_rl_wholesale.api.wholesale_controller import WholesaleController
+from is3_rl_wholesale.api.policy_server import start_server
 import json
 
 def main():
@@ -19,12 +20,12 @@ def main():
     
     ray.init(address="auto", namespace="serve", ignore_reinit_error=True)
     serve.start()
-
+    
     response = requests.get("http://127.0.0.1:8000/wholesale")
     print(response)
-    
-    while True:
-       time.sleep(1)
+    start_server()
+    #while True:
+    #   time.sleep(1)
 
 
 

@@ -25,8 +25,9 @@ from ray.rllib.agents.a3c.a3c import A3CTrainer
 from ray.rllib.offline.io_context import IOContext
 from ray.rllib.offline.input_reader import InputReader
 import dotenv
-from ray.rllib.agents.a3c.a3c_tf_policy import A3CTFPolicy
+
 from ray.rllib.policy.sample_batch import SampleBatch
+from ray.rllib.env.policy_client import PolicyClient
 
 app = FastAPI()
 ray.init(address="auto", namespace="serve", ignore_reinit_error=True)
@@ -38,6 +39,7 @@ class WholesaleController():
     reward = 0
     finished_observation = False
     timeslot = 0
+    episode_ids = []
     i = 0
     
     def __init__(self):
@@ -76,22 +78,15 @@ class WholesaleController():
         
         #obs, reward, done, _ = temp_env.step(action[0])
         #self._log.info(f"{obs}, {reward}")
-        
-
- 
-    def train_agent(self):
-        
-        training = self.trainer.train()
-        self._log.info(training)
-        
+    
 
 
     @app.get("/build_observation")
     def build_observation(self, request: Request):
         obs = request.query_params["obs"]
         obs = np.array(json.loads(obs))
-        self._log.info(type(obs))
-        self.obs = obs
+        self._log.info("Observation received")
+        self.last_obs = obs
         self._log.info(f"Building observation with: {obs}")
         self.finished_observation = True
 
@@ -111,127 +106,104 @@ class WholesaleController():
             timeslot = request.query_params["timeslot"]
         except:
             pass
-        return self.env._get_obs()
+        
+        obs = self.last_obs
+        return obs
 
 
     @app.get("/log_action")
     def log_action(self, request: Request):
-        #self.trainer.train(self.get_observation())
-        self._log.debug("Creating Env6")
-        #result = self.trainer.train()
-        #print(pretty_print(result))
         try:
-            self.env.log_action(self.env._get_obs())
-        except Exception as e:
-            self._log.error(e)
-        #self.finished_observation = False
+            episode_id = request.query_params["episode_id"]
+        except:
+            episode_id = self.episode_ids[-1]
+        try:
+            obs = request.query_params["obs"]
+            obs = np.array(json.loads(obs))
+        except:
+            obs = self.last_obs
+        self.last_action = self.client.log_action(episode_id, obs)
+        self._log(self.last_action)
+        return self.last_action.tolist()
+
 
     @app.get("/get_action")
     def get_action(self, request: Request):
         #self.trainer.train(self.get_observation())
-        episode_id = request.query_params["episode_id"]
-        # Temp
-        obs = request.query_params["obs"]
-        self._log.debug("Creating Env6")
-        #self.trainer.compute_action()
-        #result = self.trainer.train()
-        #print(pretty_print(result))
         try:
-            action = self.trainer.train()#self.env.get_action(obs, episode_id)
-            self._log.info(f"Taking Action {action}")
-            return action
-        except Exception as e:
-            self._log.error(e)
+            episode_id = request.query_params["episode_id"]
+        except:
+            episode_id = self.episode_ids[-1]
+        try:
+            obs = request.query_params["obs"]
+            obs = np.array(json.loads(obs))
+        except:
+            obs = self.last_obs
+        
+
+        self.last_action = self.client.get_action(episode_id, obs)
+        self._log.info(self.last_action)
+        return json.dumps(self.last_action.tolist())
+        
 
 
     @app.get("/log_rewards")
     def log_rewards(self, request: Request):
-        reward = request.query_params["reward"]
+        reward = float(request.query_params["reward"])
+        try:
+            episode_id = request.query_params["episode_id"]
+        except:
+            episode_id = self.episode_ids[-1]
+        
+        self.client.log_returns(episode_id, reward)
         #episode_id = request.query_params["episode_id"]
-        timeslot = request.query_params["timeslot"] 
+        #timeslot = request.query_params["timeslot"] 
         self.finished_observation = False
         self.reward = reward
         self._log.info(f"Reward logged: {reward}")
-        #return reward
+        
 
 
     @app.get("/start_episode")
     def start_episode(self, request: Request):
-        env_variables = Env_config()
-        config = env_variables.get_rl_config()
-        self._log.info(config)
+        
+        #self._log.info()
+        episode_id = self.client.start_episode()
+        self.episode_ids.append(episode_id)
+        return episode_id
 
-        def env_creator(env_config):
-            env = Env({})
-            return env
-
-        def _input(InputReader):
-
-            return
-
-        register_env("my_env", env_creator)
-        random_int = int(np.random.random_integers(1000))
-        DEFAULT_CONFIG = ({
-            # Should use a critic as a baseline (otherwise don't use value baseline;
-            # required for using GAE).
-            "use_critic": True,
-            # If true, use the Generalized Advantage Estimator (GAE)
-            # with a value function, see https://arxiv.org/pdf/1506.02438.pdf.
-            "use_gae": True,
-            # Size of rollout batch
-            "rollout_fragment_length": 10,
-            # GAE(gamma) parameter
-            "lambda": 1.0,
-            # Max global norm for each gradient calculated by worker
-            "grad_clip": 40.0,
-            # Learning rate
-            "lr": 0.0001,
-            # Learning rate schedule
-            "lr_schedule": None,
-            "input" : _input,
-            # Value Function Loss coefficient
-            "vf_loss_coeff": 0.5,
-            # Entropy coefficient
-            "entropy_coeff": 0.01,
-            # Entropy coefficient schedule
-            "entropy_coeff_schedule": None,
-            # Min time (in seconds) per reporting.
-            # This causes not every call to `training_iteration` to be reported,
-            # but to wait until n seconds have passed and then to summarize the
-            # thus far collected results.
-            "min_time_s_per_reporting": 5,
-            # Workers sample async. Note that this increases the effective
-            # rollout_fragment_length by up to 5x due to async buffering of batches.
-            "sample_async": True,
-
-            # Use the Trainer's `training_iteration` function instead of `execution_plan`.
-            # Fixes a severe performance problem with A3C. Setting this to True leads to a
-            # speedup of up to 3x for a large number of workers and heavier
-            # gradient computations (e.g. ray/rllib/tuned_examples/a3c/pong-a3c.yaml)).
-            "_disable_execution_plan_api": True,
-            "observation_space" : env_variables.observation_space,
-            "action_space" : env_variables.action_space,
-        })
        
-        #DEFAULT_CONFIG["env"] = "my_env"
-        DEFAULT_CONFIG["train_batch_size"] = 1
-        
-        self.trainer = A3CTrainer(config=DEFAULT_CONFIG).get_policy()
-        self.policy = 
             
-        self._log.info(f"Trainer created")
-
+        
 
         
-        
+    @app.get("/start_client")
+    def start_client(self, request: Request):
+        try:
+            port = request.query_params["port"]
+        except:
+            port = 9905
+
+        config = {
+            "port" : port,
+            "interference_mode" : "remote",
+            "no_train" : False
+
+        }
+        self.client = PolicyClient(
+            f"http://localhost:{config.get('port')}", inference_mode=config.get("interference_mode")
+        )
+        self._log.info(f"Client startet.")
 
     
     @app.get("/end_episode")
     def end_episodes(self, request: Request):
-        try: 
-            self.trainer.save_checkpoint(dotenv.get_key("CHECKPOINT_PATH"))
+        try:
+            episode_id = request.query_params["episode_id"]
         except:
-            pass
+            episode_id = self.episode_ids[-1]
+        
+        self.client.end_episode(episode_id)
 
 
     @app.get("/reset")
